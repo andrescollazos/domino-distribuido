@@ -31,6 +31,10 @@ if __name__ == '__main__':
                 except:
                     usuario = raw_input("Digita tu nombre de usuario: ")
                 sock.sendall(usuario)
+            elif data[0] == 'repetido':
+                usuario = raw_input("Nombre de Usuario ya existe. Escoge otro: ")
+                sock.sendall(usuario)
+
 
     except socket.error as e:
         print(str(e))

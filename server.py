@@ -42,7 +42,7 @@ class TimeServer:
                 #print "client offset: {0}".format(cliente_desface)
         #print "current_time: {0}".format(tiempo_local)
         print "NUEVO TIEMPO: {0}".format(tiempo_acumulado)
-        print "CANTIDAD DE JUGADORES: ", self.jugadores
+        #print "CANTIDAD DE JUGADORES: ", self.jugadores
         avg = (tiempo_acumulado + tiempo_local) / (len(self.lista_conexiones))
         for sock in self.lista_conexiones:
             if sock != self.server_sock:
@@ -69,6 +69,10 @@ class TimeServer:
             if sock != self.server_sock:
                 sock.send("name .")
                 nombre_jugador = sock.recv(1024)
+                while nombre_jugador in self.lista_jugadores:
+                    sock.send("repetido .")
+                    nombre_jugador = sock.recv(1024)
+
                 self.lista_jugadores.update({nombre_jugador:sock})
 
         print "Lista de Jugadores: "
