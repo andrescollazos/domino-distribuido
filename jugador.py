@@ -51,7 +51,10 @@ if __name__ == '__main__':
                 pygame.display.flip()
 
                 # Recibe sus fichas de juego
-
+                print "Me tocaron las fichas: ",
+                fichas = data[2].split(";")
+                fichas.remove(fichas[0])
+                print fichas
 
     except socket.error as e:
         print(str(e))

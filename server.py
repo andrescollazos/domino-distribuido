@@ -3,6 +3,7 @@ import time
 import pygame
 import sys
 import threading
+import random
 
 class TimeServer:
     def __init__(self, host, port):
@@ -23,7 +24,7 @@ class TimeServer:
         self.jugadores = 0
         self.lista_jugadores = {}
         self.dim_pantalla = "800,600"
-        self.fichas = {}
+        self.fichas = []
         #for ficha in self.fichas:
         #    print ficha ," :", self.fichas[ficha]
 
@@ -35,10 +36,12 @@ class TimeServer:
             for j in range(7):
                 ficha = str(i) + "," + str(j)
                 if not(ficha in self.fichas or (str(j) + "," + str(i)) in self.fichas):
-                    ruta_imagen = str(i) + ".png," + str(j) + ".png"
-                    self.fichas.update({ficha:ruta_imagen})
+                    #ruta_imagen = str(i) + ".png," + str(j) + ".png"
+                    self.fichas.append(ficha)
                     print "#",
         print "\nFichas generadas correctamente..."
+        print self.fichas
+        self.fichas_temporales = self.fichas
 
         print "Esperando jugadores {0}:{1}".format(self.host, self.port)
         try:
@@ -113,22 +116,40 @@ class TimeServer:
         for jugador in self.lista_jugadores:
             print jugador, ":", self.lista_jugadores[jugador]
 
-        # Una vez iniciado el conjunto de jugadores, se procede a llamar al metodo
-        # juego(), el cual permite la interaccion con cada uno de los jugadores
+        # Se mandan las configuraciones inciales de manera secuencial:
+        # Dimension de la pantalla de juego
+        # 7 dominos para cada uno de los jugadores
+        cantidad_fichas = len(self.fichas)
         for sock_jugador in self.lista_jugadores:
-            # Se crea un hilo de juego para cada uno de los jugadores
-            jugador = threading.Thread(target = self.juego, args = (sock_jugador, ))
+            fichas_jugador = "" # Cadena que contiene las fichas
+            for i in range(7):
+                # Se genera una posicion random en el arreglo de fichas
+                posicion = random.randrange(cantidad_fichas)
+                # Se va generando una cadena que luciria asi:
+                # Ejemplo: El jugador tendra las fichas cero y cero, la uno y cero,
+                # la seis y cero, la tres y cuatro, etc... Se representa:
+                # fichas_jugador = "0,0;1,0;6,0;3,4;4,5;6,6;2,1"
+                fichas_jugador += ";" + self.fichas[posicion]
+                self.fichas.remove(self.fichas[posicion])
+                cantidad_fichas -= 1
+            #print "Fichas del Jugador: ", sock_jugador
+            #print fichas_jugador
+
+            llave = sock_jugador
+            sock_jugador = self.lista_jugadores[llave]
+            if sock_jugador != self.server_sock:
+                # Enviar dimensiones de la pantalla y fichas del jugador
+                sock_jugador.send("init " + self.dim_pantalla + " " + fichas_jugador)
+
+            # Una vez iniciado el conjunto de jugadores, se procede a llamar al metodo
+            # juego(), el cual permite la interaccion con cada uno de los jugadores
+            jugador = threading.Thread(target = self.juego, args = (llave, ))
             jugador.start() # Iniciar hilo
 
-    def juego(self, sock):
-        # El sock que es recibido, es la llave que apunta al socket en el conjunto de
-        # jugadores, nos interesa trabajar con el socket, no con la llave.
-        llave = sock
+    def juego(self, llave):
         sock = self.lista_jugadores[llave]
 
-        # Se la manda al jugador las dimensiones de la pantalla del juego
-        if sock != self.server_sock:
-            sock.send("init " + self.dim_pantalla)
+
 
 if __name__ == '__main__':
     server = TimeServer('localhost', 3000)
