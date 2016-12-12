@@ -1,9 +1,32 @@
+# coding=utf-8
 import socket
 import time
 import pygame
 import sys
 import threading
 import random
+
+# Clase para las fichas, tiene que ver con la logica de llenado
+# El jugador solo recibe una orden de pintar una ficha en una posición
+class Ficha:
+    # Iniciar
+    def __init__(self, ficha, pos = ("", "")):
+        ficha = ficha.split(",")
+        self.valor_izq = ficha[0]   # Valor superior
+        self.valor_der = ficha[1]   # Valor Inferior
+        self.ficha_izq = None         # Ficha que tiene al lado del valor superior
+        self.ficha_der = None         # Fichaque tiene al lado del valor inferior
+        self.parada = None
+        self.pos_izq = pos[0]
+        self.pos_der = pos[1]
+
+    # Metodo para imprimir el objeto por pantalla:
+    def __str__(self):
+        return self.valor_izq + "," + self.valor_der
+
+    # Metodo para retornar el objeto:
+    def retFicha(self):
+        return self.valor_izq + "," + self.valor_der + ";" + self.pos_izq + ";" + self.pos_der
 
 class TimeServer:
     def __init__(self, host, port):
@@ -22,11 +45,13 @@ class TimeServer:
         self.limite_jugadores = 3
         self.lista_conexiones = [self.server_sock]
         self.jugadores = 0
-        self.lista_jugadores = {}
-        self.lista_turnos = []
-        self.tiene_turno = ""
-        self.dim_pantalla = "800,600"
+        self.lista_jugadores = {}# Diccionario de jugadores con sus sockets
+        self.lista_turnos = []   # Lista de turnos (Orden de los turnos)
+        self.tiene_turno = ""    # Conocer quien tiene el turno
+        self.primer_turno = True # Verificar primera jugada como 6:6
+        #self.dim_pantalla = "900,600" # Es decision del jugador escoger sus dimensiones
         self.fichas = []
+        self.fichas_jugadas = [] # Fichas jugadas en tablero
         #for ficha in self.fichas:
         #    print ficha ," :", self.fichas[ficha]
 
@@ -58,7 +83,10 @@ class TimeServer:
     # cuando aun no se ha completado la cantidad maxima de jugadores, que son 4
     # el servidor rechaza la conexion cuando hay ya cuatro jugadores
     def aceptar_conexion(self):
-        new_sock, addr = self.server_sock.accept() # Recibe peticion de conexion
+        try:
+            new_sock, addr = self.server_sock.accept() # Recibe peticion de conexion
+        except:
+            self.server_sock.close()
         if self.jugadores < self.limite_jugadores: # Comprueba la cantidad de jugadores
             print "Recibida conexion de Jugador #{1} : {0}".format(addr, self.jugadores + 1)
             self.lista_conexiones.append(new_sock)
@@ -148,7 +176,7 @@ class TimeServer:
             sock_jugador = self.lista_jugadores[llave]
             if sock_jugador != self.server_sock:
                 # Enviar dimensiones de la pantalla y fichas del jugador
-                sock_jugador.send("init " + self.dim_pantalla + " " + fichas_jugador)
+                sock_jugador.send("init " + fichas_jugador)
 
             # Una vez iniciado el conjunto de jugadores, se procede a llamar al metodo
             # juego(), el cual permite la interaccion con cada uno de los jugadores
@@ -159,17 +187,64 @@ class TimeServer:
         for hilo in hilos:
             hilo.start() # Iniciar hilo
 
+    # Metodo para dar la orden a los jugadores que coloquen una ficha en sus tableros
+    def colocar(self, sock, ficha): # ficha -> Es la que el servidor va a ordenar que todos coloquen
+        # Si se trata de la primera jugada, la ficha tendra una posicion valida
+        if len(ficha.pos_izq) > 0 and len(ficha.pos_der) > 0:
+            mensaje = "coloque " + ficha.retFicha()
+            sock.send(mensaje)
+        else:
+            # Comprobar si se puede colocar una ficha
+            for fich in self.fichas_jugadas:
+                # Cuando hay una ficha con el lado superior libre:
+                if fich.ficha_izq == None:
+                    # Comparar que la ficha a poner tenga los valores iguales eje: 2:2
+                    if fich.valor_izq == ficha.valor_izq and fich.valor_izq == ficha.valor_der:
+                        pass
+                    elif fich.valor_izq == ficha.valor_izq:
+                        pass
+                    elif fich.valor_izq == ficha.valor_der:
+                        pass
+                # Cuando hay una ficha con el lado inferior libre:
+                elif fich.ficha_der == None:
+                    if fich.valor_der == ficha.valor_izq and fich.valor_der == ficha.valor_der:
+                        pass
+                    elif fich.valor_der == ficha.valor_izq:
+                        pass
+                    elif fich.valor_der == ficha.valor_der:
+                        pass
+
+        # Agregar a la lista de fichas jugadas:
+        self.fichas_jugadas.append(ficha)
+
     def juego(self, llave):
         sock = self.lista_jugadores[llave]
         # Mandar quien posee el turno
         while True:
             # El servidor verifica que si el hilo del jugador posea el turno
             if llave == self.tiene_turno:
-                time.sleep(2)
+                time.sleep(2) # Regular la velocidad de los hilos para no generar inconsistencias
                 sock.send("turno .") # Enviar orden de que realice una jugada
                 print "Enviado TURNO a ", llave
-                jugada = sock.recv(1024) # Esperar la jugada
+                jugada = sock.recv(1024).split(" ") # Esperar la jugada
                 print "Quieres realizar la jugada: ", jugada
+
+                # Realizar la jugada
+                if jugada[0] == 'jugada':
+
+                    # Verificar que se trate de la primera jugada:
+                    if self.primer_turno:
+                        # Si se trata del primer turno la jugada debe ser 6:6
+                        if jugada[1] == '6,6':
+                            for sock_jug in self.lista_jugadores:
+                                sock_jug = self.lista_jugadores[sock_jug]
+                                # Si efectivamente se trata del 6:6 manda a todos los jugadores
+                                # a que coloquen la ficha en sus respectivos tableros
+                                self.colocar(sock_jug, Ficha(jugada[1], ('400,50', '400,80')))
+                        else:
+                            sock.send("desaprobado .")
+                    else:
+                        pass
 
                 # Entregar el turno a alguien mas
                 act = self.lista_turnos.index(llave) # Saber la posicion del jugador
@@ -180,6 +255,7 @@ class TimeServer:
                     # En caso contrario pasar al jugador que llego despues
                     self.tiene_turno = self.lista_turnos[act + 1]
                 print "Enviare el nuevo turno a : ", self.tiene_turno
+                time.sleep(2)
             else:
                 # En caso de no tener el turno, el servidor enviara al jugador
                 # el nombre del jugador que tiene el turno
