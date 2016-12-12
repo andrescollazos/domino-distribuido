@@ -23,6 +23,7 @@ class TimeServer:
         self.lista_conexiones = [self.server_sock]
         self.jugadores = 0
         self.lista_jugadores = {}
+        self.tiene_turno = ""
         self.dim_pantalla = "800,600"
         self.fichas = []
         #for ficha in self.fichas:
@@ -130,6 +131,11 @@ class TimeServer:
                 # la seis y cero, la tres y cuatro, etc... Se representa:
                 # fichas_jugador = "0,0;1,0;6,0;3,4;4,5;6,6;2,1"
                 fichas_jugador += ";" + self.fichas[posicion]
+
+                # El jugador que tenga la ficha 6,6 es el primero en comenzar
+                if self.fichas[posicion] == '6,6':
+                    self.tiene_turno = sock_jugador
+
                 self.fichas.remove(self.fichas[posicion])
                 cantidad_fichas -= 1
             #print "Fichas del Jugador: ", sock_jugador
@@ -147,7 +153,9 @@ class TimeServer:
             jugador.start() # Iniciar hilo
 
     def juego(self, llave):
-        sock = self.lista_jugadores[llave]
+        if llave == self.tiene_turno:
+            sock = self.lista_jugadores[llave]
+            sock.send("turno .")
 
 
 
