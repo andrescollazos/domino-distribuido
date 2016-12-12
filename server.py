@@ -23,6 +23,7 @@ class TimeServer:
         self.lista_conexiones = [self.server_sock]
         self.jugadores = 0
         self.lista_jugadores = {}
+        self.lista_turnos = []
         self.tiene_turno = ""
         self.dim_pantalla = "800,600"
         self.fichas = []
@@ -110,6 +111,7 @@ class TimeServer:
                     nombre_jugador = sock.recv(1024)
 
                 self.lista_jugadores.update({nombre_jugador:sock})
+                self.lista_turnos.append(nombre_jugador)
 
         # MOSTRAR EN EL SERVIDOR LOS JUGADORES QUE SE CONECTARON
         print "Lista de Jugadores: "
@@ -121,6 +123,7 @@ class TimeServer:
         # Dimension de la pantalla de juego
         # 7 dominos para cada uno de los jugadores
         cantidad_fichas = len(self.fichas)
+        hilos = []
         for sock_jugador in self.lista_jugadores:
             fichas_jugador = "" # Cadena que contiene las fichas
             for i in range(7):
@@ -150,14 +153,38 @@ class TimeServer:
             # Una vez iniciado el conjunto de jugadores, se procede a llamar al metodo
             # juego(), el cual permite la interaccion con cada uno de los jugadores
             jugador = threading.Thread(target = self.juego, args = (llave, ))
-            jugador.start() # Iniciar hilo
+            hilos.append(jugador)
+
+        time.sleep(6)
+        for hilo in hilos:
+            hilo.start() # Iniciar hilo
 
     def juego(self, llave):
-        if llave == self.tiene_turno:
-            sock = self.lista_jugadores[llave]
-            sock.send("turno .")
+        sock = self.lista_jugadores[llave]
+        # Mandar quien posee el turno
+        while True:
+            # El servidor verifica que si el hilo del jugador posea el turno
+            if llave == self.tiene_turno:
+                time.sleep(2)
+                sock.send("turno .") # Enviar orden de que realice una jugada
+                print "Enviado TURNO a ", llave
+                jugada = sock.recv(1024) # Esperar la jugada
+                print "Quieres realizar la jugada: ", jugada
 
-
+                # Entregar el turno a alguien mas
+                act = self.lista_turnos.index(llave) # Saber la posicion del jugador
+                # En caso de que sea el ultimo de la lista, dar el turno al primero
+                if act == len(self.lista_turnos) - 1:
+                    self.tiene_turno = self.lista_turnos[0]
+                else:
+                    # En caso contrario pasar al jugador que llego despues
+                    self.tiene_turno = self.lista_turnos[act + 1]
+                print "Enviare el nuevo turno a : ", self.tiene_turno
+            else:
+                # En caso de no tener el turno, el servidor enviara al jugador
+                # el nombre del jugador que tiene el turno
+                sock.send("posee " + self.tiene_turno)
+                time.sleep(2)
 
 if __name__ == '__main__':
     server = TimeServer('localhost', 3000)
