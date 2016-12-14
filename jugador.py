@@ -296,13 +296,14 @@ def main():
                 jugador.limpiarPantalla(pantalla)
                 pygame.draw.rect(pantalla, (230, 178, 47), [0, 0, 900, 400], 0)
                 fuente = pygame.font.Font(None, 60)
-                texto = "GANADOR DEL JUEGO: ", jugado.data[1]
+                texto = "GANADOR DEL JUEGO: " + jugador.data[1]
                 texto = fuente.render(texto, 1, NEGRO)
                 pantalla.blit(texto, (50, 50))
                 pygame.display.flip()
-                time.sleep(5)
+                time.sleep(3)
                 pygame.quit()
-                self.continuar = True
+                jugador.continuar = False
+                time.sleep(0.5)
 
         if iniciar:
             for event in pygame.event.get():
@@ -359,3 +360,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+#    exit()

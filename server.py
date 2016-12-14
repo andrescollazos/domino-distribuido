@@ -33,6 +33,7 @@ class TimeServer:
         self.host = host
         self.port = port
         self.servidor_tiempo = time.time()
+        self.continuar = True # Ciclo de juego
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
@@ -43,13 +44,14 @@ class TimeServer:
 
         self.server_sock.listen(10)
         self.iniciado = False
-        self.limite_jugadores = 3
+        self.limite_jugadores = 4
         self.lista_conexiones = [self.server_sock]
         self.jugadores = 0
         self.lista_jugadores = {}# Diccionario de jugadores con sus sockets
         self.lista_turnos = []   # Lista de turnos (Orden de los turnos)
         self.tiene_turno = ""    # Conocer quien tiene el turno
         self.primer_turno = True # Verificar primera jugada como 6:6
+        self.numero_pasos = 0    # Si se reciben 4 mensaje de paso de turno se determina el ganador
         #self.dim_pantalla = "900,600" # Es decision del jugador escoger sus dimensiones
         self.fichas = []
         self.fichas_jugadas = [] # Fichas jugadas en tablero
@@ -273,7 +275,7 @@ class TimeServer:
 
         # Agregar a la lista de fichas jugadas:
         #if not(ficha in self.fichas_jugadas):
-        if len(mensaje > 0):
+        if len(mensaje) > 0:
             self.fichas_jugadas.append(ficha)
             return mensaje
         else:
@@ -282,7 +284,7 @@ class TimeServer:
     def juego(self, llave):
         sock = self.lista_jugadores[llave]
         # Mandar quien posee el turno
-        while True:
+        while self.continuar:
             # El servidor verifica que si el hilo del jugador posea el turno
             if llave == self.tiene_turno:
                 time.sleep(2) # Regular la velocidad de los hilos para no generar inconsistencias
@@ -296,6 +298,7 @@ class TimeServer:
 
                 # Realizar la jugada
                 if jugada[0] == 'jugada':
+                    self.numero_pasos = 0
                     # Verificar que se trate de la primera jugada:
                     if self.primer_turno:
                         while self.primer_turno:
@@ -357,9 +360,54 @@ class TimeServer:
                                                 sock_jug.send(mensaje)
                                                 ack = sock_jug.recv(1024)
                                                 print "\t* Recibiendo ack ? : ", ack, " ..."
+                                        # Cerrar la conexion
+                                        self.continuar = False
                         else:
                             # Enviar mensaje de desaprobacion:
                             sock.send(mensaje)
+                elif jugada[0] == 'PASO':
+                    self.numero_pasos += 1
+                    mensaje = ""
+                    # Ningun jugador puede hacer una jugada, se determinara el ganador:
+                    if self.numero_pasos == self.limite_jugadores:
+                        print "* SERVER DICE: No hay más posibilidades de jugadas ..."
+                        print "\t* BUSCANDO EL QUE TENGA EL MENOR PUNTAJE EN SUS FICHAS ..."
+                        puntos = [-1, -1, -1, -1]
+                        # Realizar la sumatoria de los puntos de todos los jugadores
+                        for i, fich in enumerate(self.fichas_jugadores):
+                            print "\t* Jugador ", fich[0], " puntos:",
+                            # Obtener los numeros de la cadena de las fichas del jugador i
+                            cad_fichas = fich[1].replace(";", ",").split(",")
+                            puntos[i] = 0
+                            for num in cad_fichas:
+                                try:
+                                    num = int(num)
+                                except:
+                                    num = 0
+                                puntos[i] += num
+                            print puntos[i], self.fichas_jugadores[i][0]
+                        # Encontrar el menor
+                        menor = puntos[0] # Se parte del hecho que el menor esta en la primera posicion
+                        for i, elem in enumerate(puntos):
+                            if elem < menor and (elem >= 0):
+                                menor = elem
+                        llave_v = self.fichas_jugadores[puntos.index(menor)][0]
+                        mensaje = "GANO " + llave_v
+                        print "* SERVER DICE: Ganador de la partida: ", llave_v
+                        # Informar a todos los Jugadores que hay un ganador
+                        for sock_jug in self.lista_jugadores:
+                            nom = sock_jug
+                            sock_jug = self.lista_jugadores[sock_jug]
+                            ack = ""
+                            while not(ack == "ack"):
+                                print "\t* Mandando a ", nom, "..."
+                                sock_jug.send(mensaje)
+                                ack = sock_jug.recv(1024)
+                                print "\t* Recibiendo ack ? : ", ack, " ..."
+                        # Cerrar la conexion
+                        self.continuar = False
+
+
                 # No cambia de turno hasta que el jugador no haga una jugada balida
                 if mensaje != "desaprobado .":
                     # Entregar el turno a alguien mas
@@ -377,7 +425,9 @@ class TimeServer:
                 # el nombre del jugador que tiene el turno
                 sock.send("posee " + self.tiene_turno)
                 time.sleep(2)
+        self.server_sock.close()
 
 if __name__ == '__main__':
     server = TimeServer('localhost', 3000)
     server.iniciar()
+#    exit()
