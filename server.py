@@ -428,6 +428,6 @@ class TimeServer:
         self.server_sock.close()
 
 if __name__ == '__main__':
-    server = TimeServer('localhost', 3000)
+    server = TimeServer(str(sys.argv[1]), int(sys.argv[2]))
     server.iniciar()
 #    exit()

@@ -151,7 +151,7 @@ def main():
     # Se busca que el jugador pueda interactuar con su juego de manera continua
     # Pero al establecer la conexion con el servidor, mientras recibe datos, esto
     # es bloqueante. Es por esto que tiramos un hilo para interactuar con el servidor
-    conexion = threading.Thread(target = jugador.conectarse, args = ('localhost', 3000))
+    conexion = threading.Thread(target = jugador.conectarse, args = (str(sys.argv[2]), int(sys.argv[3])))
     conexion.start() # Iniciar hilo
 
     mensaje_act = ""
