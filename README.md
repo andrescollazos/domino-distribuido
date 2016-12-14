@@ -3,9 +3,11 @@
 ## Imagenes del juego
 
 * Servidor:
+
 ![servidor] (img/screenshots/server.png)
 
 * Jugador desde terminal:
+
 ![jugador] (img/screenshots/jugador-term.png)
 
 * Jugador parte grafica:
