@@ -1,8 +1,22 @@
 # JUEGO DE DOMINO DISTRIBUIDO
 
+## Imagenes del juego
+
+* Servidor:
+![servidor] (img/screenshots/server.png)
+
+* Jugador desde terminal:
+![jugador] (img/screenshots/jugador-term.png)
+
+* Jugador parte grafica:
+![jugadorG] (img/screenshots/jugador-1.png)
+
+![jugadorG] (img/screenshots/jugador-2.png)
+
 ## Dependencias:
 * Python
 * Pygame
+* Threading
 
 ## Objetivo  
 El objetivo es desarrollar una aplicación software para un juego de dominó distribuido, de manera que los participantes puedan jugar en red desde su máquina como si fuera un juego centralizado.
