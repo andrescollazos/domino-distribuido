@@ -18,6 +18,13 @@ class Jugador:
         self.puntero = 0    # Cuadrado que indica en que ficha esta parado
         self.data = ""      # Informacion recibida del servidor
         self.continuar = True # Ciclo del juego
+        # En ocasiones el hilo que recibe la informacion del servidor es mucho
+        # mas rapido que el hilo del juego, y puede recibir nueva informacion
+        # entonces se deja procesar la configuracion inicial por seguir una nueva
+        # orden. Es por eso que es necesario guardar la configuracion, para verificar
+        # que si se esta ejecutando correctamente el juego.
+        self.config_inicial = []
+        self.fichas_jugadas = [] # Informacion de las fichas en el tablero.
         # Socket que comunica el jugador con el servidor
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.posee_turno = "" # Quien posee el turno (cadena)
@@ -27,7 +34,6 @@ class Jugador:
         # turno o no.
         self.tengo_turno = False
         self.jugada = "" # Contiene la jugada que solicite
-        self.fichas_jugadas = []
 
     # Metodo que permite la conexion entre el jugador y el servidor
     def conectarse(self, host, port):
@@ -36,22 +42,32 @@ class Jugador:
             self.sock.connect((host, port)) # Establecer conexion
         except socket.error as e:
             print(str(e))
-        try:
+        #try:
             # Ciclo para permanente recepcion y envio de informacion al servidor
-            while True:
-                # El jugador puede recibir diferentes mensajes:
-                # [orden, argumentos] -> Es la forma de los mensajes que se reciben
-                self.data  = self.sock.recv(1000).split(' ')
-                #print "Data recibida: ", self.data
-                if self.data[0] == "": # Si se recibe mensaje vacio se termina el juego
+        while True:
+            # El jugador puede recibir diferentes mensajes:
+            # [orden, argumentos] -> Es la forma de los mensajes que se reciben
+            self.data  = self.sock.recv(1000).split(' ')
+            print "DATA RECIBIDA: \n------\n", self.data , "\n------\n"
+            #print "Data recibida: ", self.data
+            try:
+                if self.data[0] == "init":
+                    #time.sleep(0.2)
+                    jugador.config_inicial = self.data
+                elif self.data[0] == 'coloque':
+                    pass
+                    #time.sleep(1)
+                elif self.data[0] == "": # Si se recibe mensaje vacio se termina el juego
                     self.continuar = False
                     break
-        except:
-            print "ERROR"
-            #print(str(e))
-        finally:
-            print "Cerrando la conexion!"
-            self.sock.close()
+            except:
+                pass
+        #except:
+        #    print "ERROR"
+        #    #print(str(e))
+        #finally:
+        #    print "Cerrando la conexion!"
+        self.sock.close()
 
     # Metodo que permite mover el puntero que indica que ficha va a ser seleccionada
     def moverseFichas(self, pantalla, direccion = ''):
@@ -91,7 +107,19 @@ class Jugador:
 
         # Mostrar las fichas que hay sobre el tablero
         for ficha in self.fichas_jugadas:
-            pantalla.blit(ficha[0], ficha[1])
+            ficha_d = ficha[0].split(",")
+            sup = pygame.image.load("img/" + ficha_d[0] + ".png")
+            inf = pygame.image.load("img/" + ficha_d[1] + ".png")
+
+            pos_sup = ficha[1].split(",")
+            pos_sup = (int(pos_sup[0]), int(pos_sup[1]))
+
+            pos_inf = ficha[2].split(",")
+            pos_inf = (int(pos_inf[0]), int(pos_inf[1]))
+
+            pantalla.blit(sup, pos_sup)
+            pantalla.blit(inf, pos_inf)
+
         pygame.display.flip()
 
     # Metodo que limpia la pantalla
@@ -131,25 +159,33 @@ def main():
     conexion = threading.Thread(target = jugador.conectarse, args = ('localhost', 3000))
     conexion.start() # Iniciar hilo
 
+    mensaje_act = ""
     while jugador.continuar:
         #print " NO ME BLOQUEO ----"
         # El jugador puede recibir diferentes mensajes:
         # [orden, argumentos] -> Es la forma de los mensajes que se reciben
+        if mensaje_act != jugador.data:
+            print "* JUGADOR DICE: Analizare el data recibido: ", jugador.data
+            mensaje_act = jugador.data
         if type(jugador.data) == type([]) and len(jugador.data) > 0: # Se debe comprobar que el data sea una lista
 
             # Esta orden le indica al jugador que debe enviar
             # el desface entre su hora local y la del servidor
+            #print "LLEGUE AHASTA AQUI"
             if jugador.data[0] == 'get':
+                print "\t* Mensaje tipo GET"
                 desface = time.time() - float(jugador.data[1])
                 jugador.sock.sendall(str(desface))
+                time.sleep(0.01)
                 jugador.data = []
 
             # Esta orden le indica al jugador que debe
             # actualizar su hora local
             elif jugador.data[0] == 'post':
+                print "\t* Mensaje tipo POST"
                 tiempo_local = float(jugador.data[1])
-                jugador.data = []
                 print "TIEMPO NUEVO: {0}".format(tiempo_local)
+                time.sleep(0.01)
                 jugador.data = []
 
             # Esta orden le indica al jugador que ha terminado
@@ -160,6 +196,7 @@ def main():
             # Esta orden le indica al jugador que debe
             # Enviar su nombre de usuario al servidor
             elif jugador.data[0] == 'name':
+                print "\t* Mensaje tipo NAME"
                 try:
                     # El jugador puede pasar su nombre de usuario como un argumento
                     # al correr el programa. Ej: python jugador.py "CAROLINA"
@@ -172,12 +209,14 @@ def main():
 
             # Esta orden indica que debe enviar otro nombre de usuario
             elif jugador.data[0] == 'repetido':
+                print "\t* Mensaje tipo REPETIDO"
                 usuario = raw_input("Nombre de Usuario ya existe. Escoge otro: ")
                 jugador.sock.sendall(usuario)
                 jugador.data = []
 
             # Esta orden indica que puede inciar el juego
             elif jugador.data[0] == 'init':
+                print "\t* Mensaje tipo INIT"
                 pygame.init()
                 print "Data inicial: ", jugador.data
                 iniciar = True
@@ -186,7 +225,7 @@ def main():
                 pygame.display.set_caption("DOMINO") # Nombre de la ventana
                 pantalla.blit(pygame.image.load("img/inicio.png"), (0, 0)) # Imagen inicial
                 pygame.display.flip()
-                time.sleep(3)
+                #time.sleep(3)
                 jugador.limpiarPantalla(pantalla)
                 # Recibe sus fichas de juego
                 print "Me tocaron las fichas: ",
@@ -199,17 +238,21 @@ def main():
                 print jugador.fichas
                 jugador.mostrarFichas(pantalla)
                 jugador.data = []
+                jugador.sock.sendall("ack")
 
             # Esta orden le indica al jugador quien tiene el turno
             elif jugador.data[0] == 'posee':
-                # Cambiar el poseedor del turno
-                if poseedor_act != jugador.data[1]:
-                    jugador.posee_turno = jugador.data[1]
-                    jugador.limpiarPantalla(pantalla) # Limpiar pantalla
-                    jugador.mostrarFichas(pantalla)   # Mostar las fichas
-                    jugador.moverseFichas(pantalla)   # Mostrar el puntero de ficha
-                    poseedor_act = jugador.data[1]
-                jugador.data = []
+                try:
+                    # Cambiar el poseedor del turno
+                    if poseedor_act != jugador.data[1]:
+                        jugador.posee_turno = jugador.data[1]
+                        jugador.limpiarPantalla(pantalla) # Limpiar pantalla
+                        jugador.mostrarFichas(pantalla)   # Mostar las fichas
+                        jugador.moverseFichas(pantalla)   # Mostrar el puntero de ficha
+                        poseedor_act = jugador.data[1]
+                    jugador.data = []
+                except:
+                    jugador.data = jugador.config_inicial
 
             # Esta orden le indica al jugador que tiene el turno
             elif jugador.data[0] == 'turno':
@@ -224,35 +267,33 @@ def main():
 
             # Esta orden indica al jugador que coloque una ficha especifica en el tablero
             elif jugador.data[0] == 'coloque':
+                print "\t* Mensaje tipo COLOQUE"
                 print "Coloque la ficha: ", jugador.data[1], ".."
                 # 6,6;400,50;400,80 Ejemplo de un data recibido
                 # Colocar la ficha 6:6 en la posicion 400, 50
                 data = jugador.data[1].split(";")
-                ficha_d = data[0].split(",")
-                sup = pygame.image.load("img/" + ficha_d[0] + ".png")
-                inf = pygame.image.load("img/" + ficha_d[1] + ".png")
-
-                pos_sup = data[1].split(",")
-                pos_sup = (int(pos_sup[0]), int(pos_sup[1]))
-
-                pos_inf = data[2].split(",")
-                pos_inf = (int(pos_inf[0]), int(pos_inf[1]))
-
-                jugador.fichas_jugadas.append((sup, pos_sup))
-                jugador.fichas_jugadas.append((inf, pos_inf))
+                jugador.fichas_jugadas.append(data)
+                print "AHORA TENGO LA FICHA: ", jugador.fichas_jugadas
 
                 # Quitar la ficha de las fichas del jugador
                 if jugador.jugada == data[0]:
                     jugador.fichas.remove(jugador.jugada)
                     jugador.jugada = ""
                 jugador.data = []
+                jugador.sock.sendall("ack")
 
             # Esta orden indica que NO puede hacer la jugada
             elif jugador.data[0] == 'desaprobado':
-                print "No puedes hacer esta jugada"
-                jugador.jugada = ""
-                jugador.data = []
-                
+                if jugador.data[1] == 'primera':
+                    print "HAZ LA PRIMERA JUGADA: 6:6"
+                    jugador.jugada = "6,6"
+                    jugador.sock.sendall("jugada " + jugador.jugada)
+                    jugador.data = []
+                else:
+                    print "No puedes hacer esta jugada"
+                    jugador.jugada = ""
+                    jugador.data = []
+
         if iniciar:
             for event in pygame.event.get():
                 # EN CASO DE CERRAR LA PESTAÑA
