@@ -44,7 +44,7 @@ class Jugador:
             print(str(e))
         #try:
             # Ciclo para permanente recepcion y envio de informacion al servidor
-        while True:
+        while self.continuar:
             # El jugador puede recibir diferentes mensajes:
             # [orden, argumentos] -> Es la forma de los mensajes que se reciben
             self.data  = self.sock.recv(1000).split(' ')
@@ -62,11 +62,6 @@ class Jugador:
                     break
             except:
                 pass
-        #except:
-        #    print "ERROR"
-        #    #print(str(e))
-        #finally:
-        #    print "Cerrando la conexion!"
         self.sock.close()
 
     # Metodo que permite mover el puntero que indica que ficha va a ser seleccionada
@@ -133,7 +128,7 @@ class Jugador:
         # Indicar quien tiene el turno.
         # Si sale "El jugador posee el turno", es que la persona que esta jugando
         # tiene el turno actualmente.
-        texto = "El jugador " + self.posee_turno + " posee el turno"
+        texto = "* SERVIDOR DICE: El jugador " + self.posee_turno + " posee el turno"
         texto = fuente.render(texto, 1, NEGRO)
 
         pantalla.blit(texto, (10, 5))
@@ -184,7 +179,7 @@ def main():
             elif jugador.data[0] == 'post':
                 print "\t* Mensaje tipo POST"
                 tiempo_local = float(jugador.data[1])
-                print "TIEMPO NUEVO: {0}".format(tiempo_local)
+                print "* JUGADOR DICE: TIEMPO NUEVO: {0}".format(tiempo_local)
                 time.sleep(0.01)
                 jugador.data = []
 
@@ -203,14 +198,14 @@ def main():
                     usuario = str(sys.argv[1])
                 except:
                     # En caso contrario el jugador ingresara por teclado su usuario.
-                    usuario = raw_input("Digita tu nombre de usuario: ")
+                    usuario = raw_input("* JUGADOR DICE: Digita tu nombre de usuario: ")
                 jugador.sock.sendall(usuario)
                 jugador.data = []
 
             # Esta orden indica que debe enviar otro nombre de usuario
             elif jugador.data[0] == 'repetido':
                 print "\t* Mensaje tipo REPETIDO"
-                usuario = raw_input("Nombre de Usuario ya existe. Escoge otro: ")
+                usuario = raw_input("* JUGADOR DICE: Nombre de Usuario ya existe. Escoge otro: ")
                 jugador.sock.sendall(usuario)
                 jugador.data = []
 
@@ -218,7 +213,7 @@ def main():
             elif jugador.data[0] == 'init':
                 print "\t* Mensaje tipo INIT"
                 pygame.init()
-                print "Data inicial: ", jugador.data
+                print "* JUGADOR DICE: Data inicial: ", jugador.data
                 iniciar = True
                 dimension = DIM #Convierte a entero
                 pantalla = pygame.display.set_mode(dimension) # Crea la pantalla
@@ -228,12 +223,12 @@ def main():
                 #time.sleep(3)
                 jugador.limpiarPantalla(pantalla)
                 # Recibe sus fichas de juego
-                print "Me tocaron las fichas: ",
+                print "* JUGADOR DICE: Me tocaron las fichas: ",
                 try:
                     jugador.fichas = jugador.data[1].split(";")
                     jugador.fichas.remove(jugador.fichas[0])
                 except:
-                    print "Ocurrio un error al recibir las fichas"
+                    print "* JUGADOR DICE: Ocurrio un error al recibir las fichas"
                     jugador.sock.close()
                 print jugador.fichas
                 jugador.mostrarFichas(pantalla)
@@ -262,18 +257,18 @@ def main():
                 jugador.limpiarPantalla(pantalla) # Limpiar pantalla
                 jugador.mostrarFichas(pantalla)   # Mostar las fichas
                 jugador.moverseFichas(pantalla)   # Mostrar el puntero de ficha
-                print "Poseo el turno"#, jugador.tengo_turno
+                print "* JUGADOR DICE: Poseo el turno"#, jugador.tengo_turno
                 jugador.data = []
 
             # Esta orden indica al jugador que coloque una ficha especifica en el tablero
             elif jugador.data[0] == 'coloque':
                 print "\t* Mensaje tipo COLOQUE"
-                print "Coloque la ficha: ", jugador.data[1], ".."
+                print "* SERVIDOR DICE: Coloque la ficha: ", jugador.data[1], ".."
                 # 6,6;400,50;400,80 Ejemplo de un data recibido
                 # Colocar la ficha 6:6 en la posicion 400, 50
                 data = jugador.data[1].split(";")
                 jugador.fichas_jugadas.append(data)
-                print "AHORA TENGO LA FICHA: ", jugador.fichas_jugadas
+                #print "AHORA TENGO LA FICHA: ", jugador.fichas_jugadas
 
                 # Quitar la ficha de las fichas del jugador
                 if jugador.jugada == data[0]:
@@ -285,32 +280,48 @@ def main():
             # Esta orden indica que NO puede hacer la jugada
             elif jugador.data[0] == 'desaprobado':
                 if jugador.data[1] == 'primera':
-                    print "HAZ LA PRIMERA JUGADA: 6:6"
+                    print "* SERVER DICE: Haz la primera Jugada: 6,6"
                     jugador.jugada = "6,6"
                     jugador.sock.sendall("jugada " + jugador.jugada)
                     jugador.data = []
                 else:
-                    print "No puedes hacer esta jugada"
+                    print "* SERVER DICE: No puedes hacer esta jugada"
                     jugador.jugada = ""
                     jugador.data = []
+
+            # Esta orden indica que el Jugador gano el juego:
+            elif jugador.data[0] == 'GANO':
+                iniciar = False
+                jugador.sock.sendall("ack")
+                jugador.limpiarPantalla(pantalla)
+                pygame.draw.rect(pantalla, (230, 178, 47), [0, 0, 900, 400], 0)
+                fuente = pygame.font.Font(None, 60)
+                texto = "GANADOR DEL JUEGO: ", jugado.data[1]
+                texto = fuente.render(texto, 1, NEGRO)
+                pantalla.blit(texto, (50, 50))
+                pygame.display.flip()
+                time.sleep(5)
+                pygame.quit()
+                self.continuar = True
 
         if iniciar:
             for event in pygame.event.get():
                 # EN CASO DE CERRAR LA PESTAÑA
                 if event.type == pygame.QUIT:
+                    pygame.quit()
                     continuar = False
                     # Completar
                 # MOVIMIENTO ENTRE LAS FICHAS
                 if event.type == pygame.KEYDOWN:
                     # Mover derecha:
                     if event.key == pygame.K_LEFT:
-                        print "Moviendo a la izq"
+                        print "* JUGADOR DICE: Moviendo a la izq"
                         jugador.limpiarPantalla(pantalla)
                         jugador.mostrarFichas(pantalla)
                         jugador.moverseFichas(pantalla, 'izq')
                     # Mover izquierda!
                     if event.key == pygame.K_RIGHT:
-                        print "Moviendo a la der"
+                        print "* JUGADOR DICE: Moviendo a la der"
                         jugador.limpiarPantalla(pantalla)
                         jugador.mostrarFichas(pantalla)
                         jugador.moverseFichas(pantalla, 'der')
@@ -320,23 +331,23 @@ def main():
                         if jugador.tengo_turno:
                             # Se selecciona la ficha que este apuntando el puntero
                             jugador.jugada = jugador.fichas[jugador.puntero]
-                            print "Seleccionando: Ficha : {0} Valor: {1}".format(jugador.puntero, jugador.jugada)
+                            print "* JUGADOR DICE: Seleccionando: Ficha : {0} Valor: {1}".format(jugador.puntero, jugador.jugada)
                             # Mandar al servidor un mensaje de jugada
                             jugador.sock.sendall("jugada " + jugador.jugada)
                             jugador.data = []
                             jugador.tengo_turno = False # Se termina el turno
                         else:
-                            print "No tienes el turno"
+                            print "* JUGADOR DICE: No tienes el turno"
                             mostrarAdvertencia(pantalla)
                     # Pasar turno
                     if event.key == pygame.K_p:
                         if jugador.tengo_turno:
-                            print "Pasando el turno"
+                            print "* JUGADOR DICE: Pasando el turno"
                             jugador.sock.sendall("PASO")
                             jugador.data = []
                             jugador.tengo_turno = False
                         else:
-                            print "No tienes el turno no puedes pasar"
+                            print "* JUGADOR DICE: No tienes el turno no puedes pasar"
                             mostrarAdvertencia(pantalla)
                 # En caso de soltar una tecla
                 if event.type == pygame.KEYUP:

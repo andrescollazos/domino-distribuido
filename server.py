@@ -53,6 +53,7 @@ class TimeServer:
         #self.dim_pantalla = "900,600" # Es decision del jugador escoger sus dimensiones
         self.fichas = []
         self.fichas_jugadas = [] # Fichas jugadas en tablero
+        self.fichas_jugadores = []
         #for ficha in self.fichas:
         #    print ficha ," :", self.fichas[ficha]
 
@@ -174,6 +175,9 @@ class TimeServer:
             #print fichas_jugador
 
             llave = sock_jugador
+            # Guardar registro de las fichas
+            registro = [llave, fichas_jugador]
+            self.fichas_jugadores.append(registro)
             sock_jugador = self.lista_jugadores[llave]
             ack = "" # Acuse de recibo
             if sock_jugador != self.server_sock:
@@ -190,6 +194,9 @@ class TimeServer:
             hilos.append(jugador)
 
         print "* SERVER DICE: COMENZANDO JUEGO..."
+        print "* FICHAS POR JUGADOR: "
+        for fichas_jug in self.fichas_jugadores:
+            print "\t* Jugador ", fichas_jug[0], ": \n\t\t* ", fichas_jug[1]
         time.sleep(7)
         for hilo in hilos:
             hilo.start() # Iniciar hilo
@@ -308,6 +315,10 @@ class TimeServer:
                                         print "\t* Recibiendo ack ? : ", ack, " ..."
 
                                 self.primer_turno = False
+                                # Eliminar ficha del registro de fichas:
+                                for fich in self.fichas_jugadores:
+                                    if fich[0] == llave:
+                                        fich[1] = fich[1].replace('6,6', '')
                             else:
                                 sock.send("desaprobado primera")
                                 jugada = sock.recv(1024).split(" ")
@@ -325,6 +336,27 @@ class TimeServer:
                                     sock_jug.send(mensaje)
                                     ack = sock_jug.recv(1024)
                                     print "\t* Recibiendo ack ? : ", ack, " ..."
+                            # Eliminar ficha del registro de fichas:
+                            for fich in self.fichas_jugadores:
+                                if fich[0] == llave:
+                                    fich[1] = fich[1].replace(jugada[1], '')
+
+                                    # Si la longitud de la cadena de fichas es igual a 7
+                                    # es decir ";;;;;;;" es porque ya tiro todas sus fichas
+                                    # Y debe ser declarado Ganador del juego
+                                    if len(fich[1]) == 7:
+                                        mensaje = "GANO " + llave
+                                        print "* SERVER DICE: Ganador de la partida: ", llave
+                                        # Informar a todos los Jugadores que hay un ganador
+                                        for sock_jug in self.lista_jugadores:
+                                            nom = sock_jug
+                                            sock_jug = self.lista_jugadores[sock_jug]
+                                            ack = ""
+                                            while not(ack == "ack"):
+                                                print "\t* Mandando a ", nom, "..."
+                                                sock_jug.send(mensaje)
+                                                ack = sock_jug.recv(1024)
+                                                print "\t* Recibiendo ack ? : ", ack, " ..."
                         else:
                             # Enviar mensaje de desaprobacion:
                             sock.send(mensaje)
