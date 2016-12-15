@@ -1,3 +1,8 @@
+# Autores:
+# Andrés Felipe Lopez
+# Caroina Raigosa Hernandez
+# Felipe Ramirez
+
 # coding=utf-8
 import socket
 import time

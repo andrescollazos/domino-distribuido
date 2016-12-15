@@ -1,5 +1,13 @@
 # JUEGO DE DOMINO DISTRIBUIDO
 
+## Programadores
+Desarrollado por los estudiantes de Ingeniería de Sistemas y computación de la UTP,
+como proyecto final del curso Sistemas Distribuidos.
+
+* Andres Felipe Lopez Aguirre
+* Carolina Raigosa Hernandez 
+* Andres Felipe Ramirez
+
 ## Imagenes del juego
 
 * Servidor:
